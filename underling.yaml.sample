@@ -1,0 +1,11 @@
+minion:
+  location: UNDERLING
+  id: 73d292b8-9db7-48be-8c84-c736b97fc4e7
+opennms:
+  url: https://127.0.0.1:8980/opennms
+  mq: localhost:61613
+  username: admin
+  password: admin
+underling:
+  detectors:
+    fail_for_unknown_detectors: false
