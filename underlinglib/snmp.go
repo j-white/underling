@@ -3,10 +3,37 @@ package underlinglib
 import (
 	"fmt"
 	"github.com/soniah/gosnmp"
+	"strings"
 	"time"
 )
 
-func dowalk(request SNMPRequestDTO, walk SNMPWalkRequestDTO) SNMPResponseDTO {
+type SNMPRpcModule struct {
+}
+
+func (snmp SNMPRpcModule) GetId() (id string) {
+	return "SNMP"
+}
+
+func (snmp SNMPRpcModule) HandleRequest(requestBody string) (responseBody string) {
+	request := SNMPRequestDTO{}
+	UnmarshalFromXml(strings.NewReader(requestBody), &request)
+	response := SNMPExec(request)
+	responseBody, _ = MarshalToXml(response)
+	return responseBody
+}
+
+func SNMPExec(request SNMPRequestDTO) SNMPMultiResponseDTO {
+	multiResponse := SNMPMultiResponseDTO{}
+
+	for _, walk := range request.Walks {
+		multiResponse.Responses = append(multiResponse.Responses, snmp_walk(request, walk))
+	}
+
+	// TODO: Handle GETs too
+	return multiResponse
+}
+
+func snmp_walk(request SNMPRequestDTO, walk SNMPWalkRequestDTO) SNMPResponseDTO {
 	response := SNMPResponseDTO{CorrelationID: walk.CorrelationID}
 
 	// TODO: Pull all of the fields from the agent
@@ -38,15 +65,4 @@ func dowalk(request SNMPRequestDTO, walk SNMPWalkRequestDTO) SNMPResponseDTO {
 	}
 
 	return response
-}
-
-func Exec(request SNMPRequestDTO) SNMPMultiResponseDTO {
-	multiResponse := SNMPMultiResponseDTO{}
-
-	for _, walk := range request.Walks {
-		multiResponse.Responses = append(multiResponse.Responses, dowalk(request, walk))
-	}
-
-	// TODO: Handle GETs too
-	return multiResponse
 }

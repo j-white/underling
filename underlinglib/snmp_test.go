@@ -34,7 +34,7 @@ func TestSNMPExec(t *testing.T) {
 		}},
 	}
 
-	response := Exec(request)
+	response := SNMPExec(request)
 
 	assert.Equal(t, expectedResponse, response)
 

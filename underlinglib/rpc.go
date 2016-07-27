@@ -133,33 +133,3 @@ func sendMessages(conf UnderlingConfig, outgoingMessages chan *StompResponse) {
 		println("succesfully sent message to server")
 	}
 }
-
-type SNMPRpcModule struct {
-}
-
-func (snmp SNMPRpcModule) GetId() (id string) {
-	return "SNMP"
-}
-
-func (snmp SNMPRpcModule) HandleRequest(requestBody string) (responseBody string) {
-	request := SNMPRequestDTO{}
-	UnmarshalFromXml(strings.NewReader(requestBody), &request)
-	response := Exec(request)
-	responseBody, _ = MarshalToXml(response)
-	return responseBody
-}
-
-type DetectorRpcModule struct {
-}
-
-func (detect DetectorRpcModule) GetId() (id string) {
-	return "Detect"
-}
-
-func (detect DetectorRpcModule) HandleRequest(requestBody string) (responseBody string) {
-	request := DetectorRequestDTO{}
-	UnmarshalFromXml(strings.NewReader(requestBody), &request)
-	response := Detect(request)
-	responseBody, _ = MarshalToXml(response)
-	return responseBody
-}
