@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-stomp/stomp"
 	"strings"
+	"time"
 )
 
 type RPCModule interface {
@@ -44,11 +45,18 @@ func (sc *StompClient) Start() chan bool {
 
 	incomingMessages, outgoingMessages := make(chan *stomp.Message), make(chan *StompResponse)
 
+	// Start a receiver routine for each registered RPC module
 	for _, module := range sc.modules {
 		go recvMessages(module.GetId(), sc.Config, incomingMessages, stop)
 	}
 
-	go handleMessages(sc, incomingMessages, outgoingMessages)
+	// Start N number of handlers
+	// TODO: These requests should be handled asynchronously instead
+	for i := 0; i < 10; i++ {
+		go handleMessages(sc, incomingMessages, outgoingMessages)
+	}
+
+	// Start a single sender
 	go sendMessages(sc.Config, outgoingMessages)
 
 	return stop
@@ -59,30 +67,39 @@ func recvMessages(moduleId string, conf UnderlingConfig, incomingMessages chan *
 		stop <- true
 	}()
 
-	conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
-	if err != nil {
-		println("cannot connect to server", conf.OpenNMS.Mq, err.Error())
-		return
-	}
-	println("successfully conected consumer to server!")
-
-	queueName := "/queue/OpenNMS.RPC." + moduleId + "@" + conf.Minion.Location
-	sub, err := conn.Subscribe(queueName, stomp.AckAuto)
-	if err != nil {
-		println("cannot subscribe to", queueName, err.Error())
-		return
-	}
-
 	for {
-		msg := <-sub.C
-		println("got message")
-		incomingMessages <- msg
+		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
+		if err != nil {
+			println("failed to connect to server", conf.OpenNMS.Mq, err.Error())
+			println("sleeping for 5 seconds before trying again")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		println("successfully conected consumer to server!")
+
+		queueName := "/queue/OpenNMS.RPC." + moduleId + "@" + conf.Minion.Location
+		sub, err := conn.Subscribe(queueName, stomp.AckAuto)
+		if err != nil {
+			println("cannot subscribe to", queueName, err.Error())
+			return
+		}
+
+		for {
+			msg := <-sub.C
+			if msg == nil {
+				println("got nil message. attempting to reconnect.")
+				break
+			}
+			println("received message", msg)
+			incomingMessages <- msg
+		}
 	}
 }
 
 func handleMessages(sc *StompClient, incomingMessages chan *stomp.Message, outgoingMessages chan *StompResponse) {
 	for {
 		msg := <-incomingMessages
+		println("handling message", msg)
 		msg.Header.Len()
 		println("Received message with body:", string(msg.Body))
 		if msg.Header == nil {
@@ -110,26 +127,33 @@ func handleMessages(sc *StompClient, incomingMessages chan *stomp.Message, outgo
 				}
 			}
 		}
+		println("done handling message", msg)
 	}
 }
 
 func sendMessages(conf UnderlingConfig, outgoingMessages chan *StompResponse) {
-	conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
-	if err != nil {
-		println("cannot connect to server", conf.OpenNMS.Mq, err.Error())
-		return
-	}
-	println("successfully conected producer to server!")
 
 	for {
-		msg := <-outgoingMessages
-		fmt.Printf("sending message to server on queue '%s' with correlationd-id %s: %s\n", msg.QueueName, msg.CorrelationID, msg.Body)
-		err = conn.Send(msg.QueueName, "text/plain", []byte(msg.Body),
-			stomp.SendOpt.Header("correlation-id", msg.CorrelationID))
+		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
 		if err != nil {
-			println("failed to send to server", err)
-			return
+			println("failed to connect to server", conf.OpenNMS.Mq, err.Error())
+			println("sleeping for 5 seconds before trying again")
+			time.Sleep(5 * time.Second)
+			continue
 		}
-		println("succesfully sent message to server")
+		println("successfully conected producer to server!")
+
+		for {
+			msg := <-outgoingMessages
+			fmt.Printf("sending message to server on queue '%s' with correlationd-id %s: %s\n", msg.QueueName, msg.CorrelationID, msg.Body)
+			err = conn.Send(msg.QueueName, "text/plain", []byte(msg.Body),
+				stomp.SendOpt.Header("correlation-id", msg.CorrelationID))
+			if err != nil {
+				// TODO: The message will be dropped, should we re-attempt?
+				println("failed to send to server", err)
+				continue
+			}
+			println("succesfully sent message to server")
+		}
 	}
 }
