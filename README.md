@@ -1,4 +1,4 @@
-Underling [![CircleCI](https://circleci.com/gh/j-white/underling.svg?style=svg)](https://circleci.com/gh/j-white/underling)
+Underling [![CircleCI](https://circleci.com/gh/j-white/underling.svg?style=svg)](https://circleci.com/gh/j-white/underling) [![Go Report Card](https://goreportcard.com/badge/j-white/underling)](https://goreportcard.com/report/j-white/underling)
 ================
 
 Underling is an alternative implementation of the OpenNMS Minion written in Go.
