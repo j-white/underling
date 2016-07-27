@@ -115,3 +115,54 @@ func TestMarshalUnmarshalSNMPResponseDTO(t *testing.T) {
 
 	MarshalUnmarshal(t, expectedResponse, expectedXml, &(SNMPMultiResponseDTO{}))
 }
+
+func TestMarshalUnmarshalDetectorRequestDTO(t *testing.T) {
+	expectedXml := `<detector-request location="MINION" class-name="org.opennms.netmgt.provision.detector.icmp.IcmpDetector" address="127.0.0.1">
+  <detector-attribute key="port">8980</detector-attribute>
+  <runtime-attribute key="password">foo</runtime-attribute>
+</detector-request>`
+
+	detectorAttribute := DetectorAttributeDTO{
+		XMLName: xml.Name{Space: "", Local: "detector-attribute"},
+		Key:     "port",
+		Value:   "8980",
+	}
+
+	runtimeAttribute := RuntimeAttributeDTO{
+		XMLName: xml.Name{Space: "", Local: "runtime-attribute"},
+		Key:     "password",
+		Value:   "foo",
+	}
+
+	expectedRequest := DetectorRequestDTO{
+		XMLName:            xml.Name{Space: "", Local: "detector-request"},
+		Location:           "MINION",
+		ClassName:          "org.opennms.netmgt.provision.detector.icmp.IcmpDetector",
+		Address:            "127.0.0.1",
+		DetectorAttributes: []DetectorAttributeDTO{detectorAttribute},
+		RuntimeAttributes:  []RuntimeAttributeDTO{runtimeAttribute},
+	}
+
+	MarshalUnmarshal(t, expectedRequest, expectedXml, &(DetectorRequestDTO{}))
+}
+
+func TestMarshalUnmarshalDetectorResponseDTO(t *testing.T) {
+	expectedXml := `<detector-response detected="true" failure-message="classCast exception">
+  <attribute key="vendor">MOO</attribute>
+</detector-response>`
+
+	attribute := AttributeDTO{
+		XMLName: xml.Name{Space: "", Local: "attribute"},
+		Key:     "vendor",
+		Value:   "MOO",
+	}
+
+	expectedResponse := DetectorResponseDTO{
+		XMLName:        xml.Name{Space: "", Local: "detector-response"},
+		Detected:       true,
+		FailureMessage: "classCast exception",
+		Attributes:     []AttributeDTO{attribute},
+	}
+
+	MarshalUnmarshal(t, expectedResponse, expectedXml, &(DetectorResponseDTO{}))
+}
