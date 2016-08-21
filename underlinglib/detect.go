@@ -1,13 +1,7 @@
 package underlinglib
 
 import (
-	"github.com/tatsushid/go-fastping"
-	"net"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
-	"time"
 )
 
 type DetectorRpcModule struct {
@@ -36,65 +30,16 @@ func DetectExec(request DetectorRequestDTO) DetectorResponseDTO {
 	}
 }
 
-type response struct {
-	addr *net.IPAddr
-	rtt  time.Duration
-}
-
 func IcmpDetect(request DetectorRequestDTO) DetectorResponseDTO {
-	p := fastping.NewPinger()
-	p.Network("udp")
-
-	netProto := "ip4:icmp"
-	if strings.Index(request.Address, ":") != -1 {
-		netProto = "ip6:ipv6-icmp"
-	}
-	ra, err := net.ResolveIPAddr(netProto, request.Address)
+	p := NewPinger()
+	rtt, err := p.Ping(request.Address, DefaultPingRetries, DefaultPingTimeout)
 	if err != nil {
 		return DetectorResponseDTO{Detected: false, FailureMessage: err.Error()}
+	} else if rtt > 0 {
+		return DetectorResponseDTO{Detected: true}
+	} else {
+		return DetectorResponseDTO{Detected: false}
 	}
-	p.AddIPAddr(ra)
-
-	onRecv, onIdle := make(chan *response), make(chan bool)
-	p.OnRecv = func(addr *net.IPAddr, t time.Duration) {
-		onRecv <- &response{addr: addr, rtt: t}
-	}
-	p.OnIdle = func() {
-		onIdle <- true
-	}
-
-	p.MaxRTT = time.Second
-	p.RunLoop()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-
-	result := DetectorResponseDTO{Detected: false, FailureMessage: "oups"}
-loop:
-	for {
-		select {
-		case <-c:
-			result = DetectorResponseDTO{Detected: false, FailureMessage: "Interrupted."}
-			break loop
-		case <-onRecv:
-			result = DetectorResponseDTO{Detected: true}
-			break loop
-		case <-onIdle:
-			result = DetectorResponseDTO{Detected: false}
-			break loop
-		case <-p.Done():
-			if err != nil {
-				result = DetectorResponseDTO{Detected: false, FailureMessage: err.Error()}
-			} else {
-				result = DetectorResponseDTO{Detected: false, FailureMessage: "Unkown error."}
-			}
-			break loop
-		}
-	}
-	signal.Stop(c)
-	p.Stop()
-	return result
 }
 
 func SnmpDetect(request DetectorRequestDTO) DetectorResponseDTO {
