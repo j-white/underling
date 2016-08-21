@@ -84,7 +84,11 @@ loop:
 			result = DetectorResponseDTO{Detected: false}
 			break loop
 		case <-p.Done():
-			result = DetectorResponseDTO{Detected: false, FailureMessage: err.Error()}
+			if err != nil {
+				result = DetectorResponseDTO{Detected: false, FailureMessage: err.Error()}
+			} else {
+				result = DetectorResponseDTO{Detected: false, FailureMessage: "Unkown error."}
+			}
 			break loop
 		}
 	}
