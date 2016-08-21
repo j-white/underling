@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/j-white/underling",
-	"GoVersion": "go1.6.2",
+	"GoVersion": "go1.6.3",
 	"Packages": [
 		"./..."
 	],
@@ -33,6 +33,10 @@
 		{
 			"ImportPath": "github.com/tatsushid/go-fastping",
 			"Rev": "d7bb493dee3e090e2ffb6914adddf17c1e7c026c"
+		},
+		{
+			"ImportPath": "golang.org/x/net/bpf",
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
 		},
 		{
 			"ImportPath": "golang.org/x/net/icmp",
