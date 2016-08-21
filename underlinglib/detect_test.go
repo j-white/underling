@@ -6,7 +6,8 @@ import (
 )
 
 func TestIcmpDetect(t *testing.T) {
-	request := DetectorRequestDTO{Address: "127.0.0.1"}
+	request := DetectorRequestDTO{Address: "203.0.113.1"}
 	response := IcmpDetect(request)
-	assert.Equal(t, true, response.Detected)
+	assert.Equal(t, false, response.Detected)
+	assert.Equal(t, "", response.FailureMessage)
 }
