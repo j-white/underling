@@ -48,11 +48,22 @@ func (s *Subscription) Active() bool {
 }
 
 // Unsubscribes and closes the channel C.
-func (s *Subscription) Unsubscribe() error {
+func (s *Subscription) Unsubscribe(opts ...func(*frame.Frame) error) error {
 	if s.completed {
 		return ErrCompletedSubscription
 	}
 	f := frame.New(frame.UNSUBSCRIBE, frame.Id, s.id)
+
+	for _, opt := range opts {
+		if opt == nil {
+			return ErrNilOption
+		}
+		err := opt(f)
+		if err != nil {
+			return err
+		}
+	}
+
 	s.conn.sendFrame(f)
 	s.completed = true
 	close(s.C)
@@ -78,6 +89,10 @@ func (s *Subscription) Read() (*Message, error) {
 
 func (s *Subscription) readLoop(ch chan *frame.Frame) {
 	for {
+		if s.completed {
+			return
+		}
+
 		f, ok := <-ch
 		if !ok {
 			return
@@ -94,7 +109,9 @@ func (s *Subscription) readLoop(ch chan *frame.Frame) {
 				Header:       f.Header,
 				Body:         f.Body,
 			}
-			s.C <- msg
+			if !s.completed {
+				s.C <- msg
+			}
 		} else if f.Command == frame.ERROR {
 			message, _ := f.Header.Contains(frame.Message)
 			text := fmt.Sprintf("Subscription %s: %s: ERROR message:%s",
@@ -114,7 +131,9 @@ func (s *Subscription) readLoop(ch chan *frame.Frame) {
 				Header:       f.Header,
 				Body:         f.Body,
 			}
-			s.C <- msg
+			if !s.completed {
+				s.C <- msg
+			}
 			s.completed = true
 			close(s.C)
 			return

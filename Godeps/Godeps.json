@@ -7,13 +7,13 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/go-stomp/stomp",
-			"Comment": "v1.0.1-37-g64f6322",
-			"Rev": "64f6322840b955feb307a22abbeef6606215b40a"
+			"Comment": "v1.0.1-46-ge301e7f",
+			"Rev": "e301e7f28d9386a0f0b7429352bd9525c86b484d"
 		},
 		{
 			"ImportPath": "github.com/soniah/gosnmp",
-			"Comment": "v1.9-memory-39-gf6904fd",
-			"Rev": "f6904fd235070fe56e2c2d799ac5f5862fc32543"
+			"Comment": "v1.9-memory-56-geb32571",
+			"Rev": "eb32571c2410868d85849ad67d1e51d01273eb84"
 		},
 		{
 			"ImportPath": "github.com/stretchr/testify/assert",
@@ -36,19 +36,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/icmp",
-			"Rev": "972f0c5fbe4ae29e666c3f78c3ed42ae7a448b0a"
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
 		},
 		{
 			"ImportPath": "golang.org/x/net/internal/iana",
-			"Rev": "972f0c5fbe4ae29e666c3f78c3ed42ae7a448b0a"
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
 		},
 		{
 			"ImportPath": "golang.org/x/net/ipv4",
-			"Rev": "972f0c5fbe4ae29e666c3f78c3ed42ae7a448b0a"
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
 		},
 		{
 			"ImportPath": "golang.org/x/net/ipv6",
-			"Rev": "972f0c5fbe4ae29e666c3f78c3ed42ae7a448b0a"
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",

@@ -5,10 +5,9 @@ gosnmp
 [![GoDoc](https://godoc.org/github.com/soniah/gosnmp?status.png)](http://godoc.org/github.com/soniah/gosnmp)
 https://github.com/soniah/gosnmp
 
-GoSNMP is an SNMP client library written fully in Go. Currently it
-provides GetRequest, GetNext, GetBulk, Walk (beta, see below), and
-SetRequest (beta, see below). It supports IPv4 and IPv6, using
-__SNMPv2c__ or __SNMPv3__.
+GoSNMP is an SNMP client library fully written in Go. It provides Get,
+GetNext, GetBulk, Walk, BulkWalk and Set. It supports IPv4 and IPv6,
+using __SNMPv2c__ or __SNMPv3__.
 
 About
 -----
@@ -21,6 +20,8 @@ these project collaborators:
 * Nathan Owens ([@virtuallynathan](https://github.com/virtuallynathan/))
 * Whitham Reeve ([@wdreeveii](https://github.com/wdreeveii/))
 
+Sonia Hamilton, sonia@snowfrog.net, http://www.snowfrog.net.
+
 Overview
 --------
 
@@ -31,25 +32,19 @@ GoSNMP has the following SNMP functions:
 * **GetBulk**
 * **Walk** - retrieves a subtree of values using GETNEXT.
 * **BulkWalk** - retrieves a subtree of values using GETBULK.
-* **Set** (beta - currently supports Integers and OctetStrings)
+* **Set** - supports Integers and OctetStrings
+* **SendTrap** - currently being integrated
 
-GoSNMP also has the following helper functions:
+GoSNMP also has support for **receiving** traps; see the file
+**examples/trapserver.go** for usage.
+
+GoSNMP has the following **helper** functions:
 
 * **ToBigInt** - treat returned values as `*big.Int`
 * **Partition** - facilitates dividing up large slices of OIDs
 
-GoSNMP has rudimentry support for *receiving* traps. This code needs work
-(pull request welcome) - see the branch **traps**. The developer
-[@jda](https://github.com/jda) says "I'm working on the best level of
-abstraction but I'm able to receive traps from a Cisco switch and
-Net-SNMP".
-
-In addition, *Kripakaran Karlekar* has just (May/2016) sent a
-diff for *sending* traps. I haven't yet had time to
-explore or integrate his code, it's in the branch **traps2**.
-
-**soniah/gosnmp** has diverged from **alouca/gosnmp** - your existing
-code will require modification:
+**soniah/gosnmp** has diverged _significantly_ from **alouca/gosnmp**.
+Your code will require modification in these (and other) locations:
 
 * the **Get** function has a different method signature
 * the **NewGoSNMP** function has been removed, use **Connect** instead
@@ -66,13 +61,11 @@ type Logger interface {
 }
 ```
 
-gosnmp is still under development, therefore API's may change and bugs
+GoSNMP is still under development, therefore API's may change and bugs
 will be squashed. Test Driven Development is used - you can help by
 sending packet captures (see Packet Captures below). There may be more
 than one branch on github. **master** is safe to pull from, other
 branches unsafe as history may be rewritten.
-
-Sonia Hamilton, sonia@snowfrog.net, http://www.snowfrog.net.
 
 Installation
 ------------
@@ -123,7 +116,7 @@ for i, variable := range result.Variables {
     // interface{}. You could do a type switch...
     switch variable.Type {
     case g.OctetString:
-        bytes := variable.Value.([]bytes)
+        bytes := variable.Value.([]byte)
         fmt.Printf("string: %s\n", string(bytes))
     default:
         // ... or often you're just interested in numeric values.
@@ -148,6 +141,8 @@ Running this example gives the following output (from my printer):
 **examples/walkexample.go** demonstrates using `BulkWalk`.
 
 **examples/example3.go** demonstrates `SNMPv3`
+
+**examples/trapserver.go** demonstrates writing an SNMP v2c trap server
 
 Bugs
 ----

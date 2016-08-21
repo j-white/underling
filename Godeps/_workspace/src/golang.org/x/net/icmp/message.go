@@ -7,9 +7,14 @@
 // ICMPv4 and ICMPv6.
 //
 // ICMPv4 and ICMPv6 are defined in RFC 792 and RFC 4443.
+// Multi-part message support for ICMP is defined in RFC 4884.
+// ICMP extensions for MPLS are defined in RFC 4950.
+// ICMP extensions for interface and next-hop identification are
+// defined in RFC 5837.
 package icmp
 
 import (
+	"encoding/binary"
 	"errors"
 	"net"
 	"syscall"
@@ -20,11 +25,27 @@ import (
 )
 
 var (
-	errMessageTooShort = errors.New("message too short")
-	errHeaderTooShort  = errors.New("header too short")
-	errBufferTooShort  = errors.New("buffer too short")
-	errOpNoSupport     = errors.New("operation not supported")
+	errMessageTooShort  = errors.New("message too short")
+	errHeaderTooShort   = errors.New("header too short")
+	errBufferTooShort   = errors.New("buffer too short")
+	errOpNoSupport      = errors.New("operation not supported")
+	errNoExtension      = errors.New("no extension")
+	errInvalidExtension = errors.New("invalid extension")
 )
+
+func checksum(b []byte) uint16 {
+	csumcv := len(b) - 1 // checksum coverage
+	s := uint32(0)
+	for i := 0; i < csumcv; i += 2 {
+		s += uint32(b[i+1])<<8 | uint32(b[i])
+	}
+	if csumcv&1 == 0 {
+		s += uint32(b[csumcv])
+	}
+	s = s>>16 + s&0xffff
+	s = s + s>>16
+	return ^uint16(s)
+}
 
 // A Type represents an ICMP message type.
 type Type interface {
@@ -39,7 +60,7 @@ type Message struct {
 	Body     MessageBody // body
 }
 
-// Marshal returns the binary enconding of the ICMP message m.
+// Marshal returns the binary encoding of the ICMP message m.
 //
 // For an ICMPv4 message, the returned message always contains the
 // calculated checksum field.
@@ -62,7 +83,7 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 	if m.Type.Protocol() == iana.ProtocolIPv6ICMP && psh != nil {
 		b = append(psh, b...)
 	}
-	if m.Body != nil && m.Body.Len() != 0 {
+	if m.Body != nil && m.Body.Len(m.Type.Protocol()) != 0 {
 		mb, err := m.Body.Marshal(m.Type.Protocol())
 		if err != nil {
 			return nil, err
@@ -74,22 +95,13 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 			return b, nil
 		}
 		off, l := 2*net.IPv6len, len(b)-len(psh)
-		b[off], b[off+1], b[off+2], b[off+3] = byte(l>>24), byte(l>>16), byte(l>>8), byte(l)
+		binary.BigEndian.PutUint32(b[off:off+4], uint32(l))
 	}
-	csumcv := len(b) - 1 // checksum coverage
-	s := uint32(0)
-	for i := 0; i < csumcv; i += 2 {
-		s += uint32(b[i+1])<<8 | uint32(b[i])
-	}
-	if csumcv&1 == 0 {
-		s += uint32(b[csumcv])
-	}
-	s = s>>16 + s&0xffff
-	s = s + s>>16
+	s := checksum(b)
 	// Place checksum back in header; using ^= avoids the
 	// assumption the checksum bytes are zero.
-	b[len(psh)+2] ^= byte(^s)
-	b[len(psh)+3] ^= byte(^s >> 8)
+	b[len(psh)+2] ^= byte(s)
+	b[len(psh)+3] ^= byte(s >> 8)
 	return b[len(psh):], nil
 }
 
@@ -117,7 +129,7 @@ func ParseMessage(proto int, b []byte) (*Message, error) {
 		return nil, errMessageTooShort
 	}
 	var err error
-	m := &Message{Code: int(b[1]), Checksum: int(b[2])<<8 | int(b[3])}
+	m := &Message{Code: int(b[1]), Checksum: int(binary.BigEndian.Uint16(b[2:4]))}
 	switch proto {
 	case iana.ProtocolICMP:
 		m.Type = ipv4.ICMPType(b[0])

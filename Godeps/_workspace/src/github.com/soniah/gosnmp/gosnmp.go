@@ -22,8 +22,11 @@ import (
 )
 
 const (
-	// maxOids is the maximum number of oids allowed in a Get()
-	maxOids = 60
+	// MaxOids is the maximum number of OIDs permitted in a single call,
+	// otherwise error. MaxOids too high can cause remote devices to fail
+	// strangely. 60 seems to be a common value that works, but you will want
+	// to change this in the GoSNMP struct
+	MaxOids = 60
 
 	// Base OID for MIB-2 defined SNMP variables
 	baseOid = ".1.3.6.1.2.1"
@@ -78,8 +81,12 @@ type GoSNMP struct {
 	// Conn is net connection to use, typically establised using GoSNMP.Connect()
 	Conn net.Conn
 
+	// MaxOids is the maximum number of oids allowed in a Get()
+	// (default: MaxOids)
+	MaxOids int
+
 	// MaxRepetitions sets the GETBULK max-repetitions used by BulkWalk*
-	// (default: 50)
+	// (default: 50) TODO fix "magic number", should this be defaultMaxRepetitions?
 	MaxRepetitions int
 
 	// NonRepeaters sets the GETBULK max-repeaters used by BulkWalk*
@@ -89,6 +96,8 @@ type GoSNMP struct {
 	// Internal - used to sync requests to responses
 	requestID uint32
 	random    *rand.Rand
+
+	rxBuf *[rxBufSize]byte // has to be pointer due to https://github.com/golang/go/issues/11728
 
 	// Internal - used to sync requests to responses - snmpv3
 	msgID uint32
@@ -101,6 +110,7 @@ var Default = &GoSNMP{
 	Version:   Version2c,
 	Timeout:   time.Duration(2) * time.Second,
 	Retries:   3,
+	MaxOids:   MaxOids,
 }
 
 // SnmpPDU will be used when doing SNMP Set's
@@ -114,6 +124,9 @@ type SnmpPDU struct {
 
 	// The value to be set by the SNMP set
 	Value interface{}
+
+	// Logger implements the Logger interface
+	Logger Logger
 }
 
 // Asn1BER is the type of the SNMP PDU
@@ -145,39 +158,52 @@ const (
 
 // SNMPError is the type for standard SNMP errors.
 type SNMPError uint8
+
 // SNMP Errors
 const (
-	NoError SNMPError   = iota  // No error occurred. This code is also used in all request PDUs, since they have no error status to report.
-	TooBig                      // The size of the Response-PDU would be too large to transport.
-	NoSuchName                  // The name of a requested object was not found.
-	BadValue                    // A value in the request didn't match the structure that the recipient of the request had for the object. For example, an object in the request was specified with an incorrect length or type.
-	ReadOnly                    // An attempt was made to set a variable that has an Access value indicating that it is read-only.
-	GenErr                      // An error occurred other than one indicated by a more specific error code in this table.
-	NoAccess                    // Access was denied to the object for security reasons.
-	WrongType                   // The object type in a variable binding is incorrect for the object.
-	WrongLength                 // A variable binding specifies a length incorrect for the object.
-	WrongEncoding               // A variable binding specifies an encoding incorrect for the object.
-	WrongValue                  // The value given in a variable binding is not possible for the object.
-	NoCreation                  // A specified variable does not exist and cannot be created.
-	InconsistentValue           // A variable binding specifies a value that could be held by the variable but cannot be assigned to it at this time.
-	ResourceUnavailable         // An attempt to set a variable required a resource that is not available.
-	CommitFailed                // An attempt to set a particular variable failed.
-	UndoFailed                  // An attempt to set a particular variable as part of a group of variables failed, and the attempt to then undo the setting of other variables was not successful.
-	AuthorizationError          // A problem occurred in authorization.
-	NotWritable                 // The variable cannot be written or created.
-	InconsistentName            // The name in a variable binding specifies a variable that does not exist.
+	NoError             SNMPError = iota // No error occurred. This code is also used in all request PDUs, since they have no error status to report.
+	TooBig                               // The size of the Response-PDU would be too large to transport.
+	NoSuchName                           // The name of a requested object was not found.
+	BadValue                             // A value in the request didn't match the structure that the recipient of the request had for the object. For example, an object in the request was specified with an incorrect length or type.
+	ReadOnly                             // An attempt was made to set a variable that has an Access value indicating that it is read-only.
+	GenErr                               // An error occurred other than one indicated by a more specific error code in this table.
+	NoAccess                             // Access was denied to the object for security reasons.
+	WrongType                            // The object type in a variable binding is incorrect for the object.
+	WrongLength                          // A variable binding specifies a length incorrect for the object.
+	WrongEncoding                        // A variable binding specifies an encoding incorrect for the object.
+	WrongValue                           // The value given in a variable binding is not possible for the object.
+	NoCreation                           // A specified variable does not exist and cannot be created.
+	InconsistentValue                    // A variable binding specifies a value that could be held by the variable but cannot be assigned to it at this time.
+	ResourceUnavailable                  // An attempt to set a variable required a resource that is not available.
+	CommitFailed                         // An attempt to set a particular variable failed.
+	UndoFailed                           // An attempt to set a particular variable as part of a group of variables failed, and the attempt to then undo the setting of other variables was not successful.
+	AuthorizationError                   // A problem occurred in authorization.
+	NotWritable                          // The variable cannot be written or created.
+	InconsistentName                     // The name in a variable binding specifies a variable that does not exist.
 )
 
 //
 // Public Functions (main interface)
 //
 
-// Connect initiates a connection to the target host
+// Connect creates and opens a socket. Because UDP is a connectionless
+// protocol, you won't know if the remote host is responding until you send
+// packets. And if the host is regularly disappearing and reappearing, you won't
+// know if you've only done a Connect().
+//
+// For historical reasons (ie this is part of the public API), the method won't
+// be renamed.
 func (x *GoSNMP) Connect() error {
 	if x.Logger == nil {
 		x.Logger = log.New(ioutil.Discard, "", 0)
 	} else {
 		x.loggingEnabled = true
+	}
+
+	if x.MaxOids == 0 {
+		x.MaxOids = MaxOids
+	} else if x.MaxOids < 0 {
+		return fmt.Errorf("MaxOids cannot be less than 0")
 	}
 
 	addr := net.JoinHostPort(x.Target, strconv.Itoa(int(x.Port)))
@@ -195,6 +221,8 @@ func (x *GoSNMP) Connect() error {
 	x.msgID = uint32(x.random.Int31())
 	// RequestID is Integer32 from SNMPV2-SMI and uses all 32 bits
 	x.requestID = x.random.Uint32()
+
+	x.rxBuf = new([rxBufSize]byte)
 
 	if x.Version == Version3 {
 		x.MsgFlags |= Reportable // tell the snmp server that a report PDU MUST be sent
@@ -249,14 +277,14 @@ func (x *GoSNMP) mkSnmpPacket(pdutype PDUType, nonRepeaters uint8, maxRepetition
 // Get sends an SNMP GET request
 func (x *GoSNMP) Get(oids []string) (result *SnmpPacket, err error) {
 	oidCount := len(oids)
-	if oidCount > maxOids {
-		return nil, fmt.Errorf("oid count (%d) is greater than maxOids (%d)",
-			oidCount, maxOids)
+	if oidCount > x.MaxOids {
+		return nil, fmt.Errorf("oid count (%d) is greater than MaxOids (%d)",
+			oidCount, x.MaxOids)
 	}
 	// convert oids slice to pdu slice
 	var pdus []SnmpPDU
 	for _, oid := range oids {
-		pdus = append(pdus, SnmpPDU{oid, Null, nil})
+		pdus = append(pdus, SnmpPDU{oid, Null, nil, x.Logger})
 	}
 	// build up SnmpPacket
 	packetOut := x.mkSnmpPacket(GetRequest, 0, 0)
@@ -278,15 +306,15 @@ func (x *GoSNMP) Set(pdus []SnmpPDU) (result *SnmpPacket, err error) {
 // GetNext sends an SNMP GETNEXT request
 func (x *GoSNMP) GetNext(oids []string) (result *SnmpPacket, err error) {
 	oidCount := len(oids)
-	if oidCount > maxOids {
-		return nil, fmt.Errorf("oid count (%d) is greater than maxOids (%d)",
-			oidCount, maxOids)
+	if oidCount > x.MaxOids {
+		return nil, fmt.Errorf("oid count (%d) is greater than MaxOids (%d)",
+			oidCount, x.MaxOids)
 	}
 
 	// convert oids slice to pdu slice
 	var pdus []SnmpPDU
 	for _, oid := range oids {
-		pdus = append(pdus, SnmpPDU{oid, Null, nil})
+		pdus = append(pdus, SnmpPDU{oid, Null, nil, x.Logger})
 	}
 
 	// Marshal and send the packet
@@ -298,15 +326,15 @@ func (x *GoSNMP) GetNext(oids []string) (result *SnmpPacket, err error) {
 // GetBulk sends an SNMP GETBULK request
 func (x *GoSNMP) GetBulk(oids []string, nonRepeaters uint8, maxRepetitions uint8) (result *SnmpPacket, err error) {
 	oidCount := len(oids)
-	if oidCount > maxOids {
-		return nil, fmt.Errorf("oid count (%d) is greater than maxOids (%d)",
-			oidCount, maxOids)
+	if oidCount > x.MaxOids {
+		return nil, fmt.Errorf("oid count (%d) is greater than MaxOids (%d)",
+			oidCount, x.MaxOids)
 	}
 
 	// convert oids slice to pdu slice
 	var pdus []SnmpPDU
 	for _, oid := range oids {
-		pdus = append(pdus, SnmpPDU{oid, Null, nil})
+		pdus = append(pdus, SnmpPDU{oid, Null, nil, x.Logger})
 	}
 
 	// Marshal and send the packet
