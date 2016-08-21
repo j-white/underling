@@ -32,7 +32,7 @@ func DetectExec(request DetectorRequestDTO) DetectorResponseDTO {
 	case "org.opennms.netmgt.provision.detector.icmp.IcmpDetector":
 		return IcmpDetect(request)
 	default:
-		return DetectorResponseDTO{Detected: false, FailureMessage: "Unsupported detector class " + request.ClassName}
+		return DetectorResponseDTO{Detected: false}
 	}
 }
 
