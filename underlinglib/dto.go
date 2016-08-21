@@ -91,3 +91,9 @@ type DetectorResponseDTO struct {
 	FailureMessage string         `xml:"failure-message,attr,omitempty"`
 	Attributes     []AttributeDTO `xml:"attribute"`
 }
+
+type MinionIdentityDTO struct {
+	XMLName  xml.Name `xml:"minion"`
+	Id       string   `xml:"id"`
+	Location string   `xml:"location"`
+}

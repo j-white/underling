@@ -166,3 +166,18 @@ func TestMarshalUnmarshalDetectorResponseDTO(t *testing.T) {
 
 	MarshalUnmarshal(t, expectedResponse, expectedXml, &(DetectorResponseDTO{}))
 }
+
+func TestMarshalUnmarshalMinionIdentityDTO(t *testing.T) {
+	expectedXml := `<minion>
+  <id>73d292b8-9db7-48be-8c84-c736b97fc4e7</id>
+  <location>UNDERLING</location>
+</minion>`
+
+	expectedIdentity := MinionIdentityDTO{
+		XMLName:  xml.Name{Space: "", Local: "minion"},
+		Id:       "73d292b8-9db7-48be-8c84-c736b97fc4e7",
+		Location: "UNDERLING",
+	}
+
+	MarshalUnmarshal(t, expectedIdentity, expectedXml, &(MinionIdentityDTO{}))
+}
