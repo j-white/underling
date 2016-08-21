@@ -77,7 +77,7 @@ func recvMessages(moduleId string, conf UnderlingConfig, incomingMessages chan *
 		}
 		println("successfully conected consumer to server!")
 
-		queueName := "/queue/OpenNMS.RPC." + moduleId + "@" + conf.Minion.Location
+		queueName := "/queue/OpenNMS." + conf.Minion.Location + ".RPC." + moduleId
 		sub, err := conn.Subscribe(queueName, stomp.AckAuto)
 		if err != nil {
 			println("cannot subscribe to", queueName, err.Error())
@@ -113,8 +113,9 @@ func handleMessages(sc *StompClient, incomingMessages chan *stomp.Message, outgo
 			requestBody := string(msg.Body)
 			sourceQueueName := msg.Header.Get("JmsQueueName")
 
+			matchedModules := 0
 			for _, module := range sc.modules {
-				if strings.HasPrefix(sourceQueueName, "OpenNMS.RPC."+module.GetId()+"@") {
+				if strings.HasSuffix(sourceQueueName, "RPC."+module.GetId()) {
 					fmt.Printf("Handling request with %s module\n", module.GetId())
 					responseBody := module.HandleRequest(requestBody)
 					fmt.Printf("Generated response body %s\n", responseBody)
@@ -124,7 +125,12 @@ func handleMessages(sc *StompClient, incomingMessages chan *stomp.Message, outgo
 						CorrelationID: msg.Header.Get("correlation-id"),
 					}
 					outgoingMessages <- &res
+					matchedModules += 1
 				}
+			}
+
+			if matchedModules < 1 {
+				println("No modules were matched for queue", sourceQueueName)
 			}
 		}
 		println("done handling message", msg)
