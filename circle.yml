@@ -10,11 +10,14 @@ dependencies:
     - rm -rf ${GOPATH}/src/${REPO_PATH}
     - mkdir -p ${GOPATH}/src/${ORG_PATH}
     - ln -s ~/underling ${GOPATH}/src/${ORG_PATH}
-    - go get github.com/tools/godep
+    - sudo add-apt-repository ppa:masterminds/glide -y
+    - sudo apt-get update
+    - sudo apt-get install glide -y
 
 test:
   pre:
-    - go vet ./...
+    - glide install
+    - go vet $(glide novendor)
 
   override:
-    - godep go test ./...
+    - go test $(glide novendor)
