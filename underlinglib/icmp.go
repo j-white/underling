@@ -1,9 +1,9 @@
 package underlinglib
 
 import (
+	"errors"
 	"github.com/tatsushid/go-fastping"
 	"net"
-	"errors"
 	"os"
 	"os/signal"
 	"strings"
@@ -71,7 +71,7 @@ loop:
 			break loop
 		case <-p.Done():
 			if err != nil {
-				rtt, err = 0, err
+				rtt = 0
 			} else {
 				rtt, err = 0, errors.New("Unknown error")
 			}
