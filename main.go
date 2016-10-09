@@ -18,7 +18,7 @@ func sendHearbeat(conf underlinglib.UnderlingConfig) {
 		Location: conf.Minion.Location,
 	}
 	identityXml, _ := underlinglib.MarshalToXml(identity)
-	skc.Send("OpenNMS.Sink.Heartbeat", identityXml)
+	skc.Send(conf.OpenNMS.Id + ".Sink.Heartbeat", identityXml)
 }
 
 func main() {

@@ -29,7 +29,6 @@ Here's a guide for hacking and building the binaries from master.
 ### Dependencies
 
 - Go 1.6
-- [Godep](https://github.com/tools/godep)
 
 ### Get Code
 
@@ -41,7 +40,7 @@ go get github.com/j-white/underling
 
 ```
 cd $GOPATH/src/github.com/j-white/underling
-godep go build
+go build .
 ```
 
 ### Running

@@ -12,6 +12,7 @@ type UnderlingConfig struct {
 	OpenNMS struct {
 		Url      string
 		Mq       string
+		Id       string
 		Username string
 		Password string
 	}

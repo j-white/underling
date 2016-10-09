@@ -4,6 +4,7 @@ minion:
 opennms:
   url: https://127.0.0.1:8980/opennms
   mq: localhost:61613
+  id: OpenNMS
   username: admin
   password: admin
 underling:
