@@ -59,3 +59,11 @@ To enable STOMP, add the following to `etc/opennms-activemq.xml` in the `<transp
 ```xml
 <transportConnector name="stomp" uri="stomp+nio://0.0.0.0:61613"/>
 ```
+
+## Mobile Bindings
+
+```
+gomobile bind -target android -o underling.aar -javapkg go.underling ./bindings
+```
+
+

@@ -77,7 +77,7 @@ func recvMessages(moduleId string, conf UnderlingConfig, incomingMessages chan *
 		}
 		println("successfully conected consumer to server!")
 
-		queueName := "/queue/" + conf.OpenNMS.Id  + "." + conf.Minion.Location + ".RPC." + moduleId
+		queueName := "/queue/" + conf.OpenNMS.Id + "." + conf.Minion.Location + ".RPC." + moduleId
 		sub, err := conn.Subscribe(queueName, stomp.AckAuto)
 		if err != nil {
 			println("cannot subscribe to", queueName, err.Error())
