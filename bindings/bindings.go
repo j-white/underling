@@ -6,23 +6,17 @@ import (
 
 var underling *underlinglib.Underling
 
-type Config struct {
-	Location string
-	Id string
-	Mq string
-}
-
-func StartUnderling(conf Config) {
-	if (underling != nil) {
+func StartUnderling(id string, location string, mq string) {
+	if underling != nil {
 		return
 	}
-	
+
 	// Convert the flat configuration to the UnderlingConfig
 	underlingConf := new(underlinglib.UnderlingConfig)
-	underlingConf.Minion.Id = conf.Id
-	underlingConf.Minion.Location = conf.Location
-	underlingConf.OpenNMS.Mq = conf.Mq
-	
+	underlingConf.Minion.Id = id
+	underlingConf.Minion.Location = location
+	underlingConf.OpenNMS.Mq = mq
+
 	underling = new(underlinglib.Underling)
 	underling.Start(*underlingConf)
 }

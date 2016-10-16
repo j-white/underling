@@ -28,9 +28,9 @@ func (underling *Underling) Start(conf UnderlingConfig) {
 	stop := sc.Start()
 
 	heartbeat := time.NewTicker(time.Second * 30).C
-	sendHearbeat(conf)
-	
+
 	go func() {
+		sendHearbeat(conf)
 		for {
 			select {
 			case <-heartbeat:
@@ -40,7 +40,7 @@ func (underling *Underling) Start(conf UnderlingConfig) {
 				return
 			}
 		}
-    }()
+	}()
 }
 
 func (underling *Underling) Stop() {
