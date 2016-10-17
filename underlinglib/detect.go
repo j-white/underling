@@ -20,6 +20,8 @@ func (detect DetectorRpcModule) HandleRequest(requestBody string) (responseBody 
 }
 
 func DetectExec(request DetectorRequestDTO) DetectorResponseDTO {
+	// TODO: Can we dynamically register these in Go?
+	// In Java one could use the ServiceLoader
 	switch request.ClassName {
 	case "org.opennms.netmgt.provision.detector.snmp.SnmpDetector":
 		return SnmpDetect(request)
@@ -43,5 +45,6 @@ func IcmpDetect(request DetectorRequestDTO) DetectorResponseDTO {
 }
 
 func SnmpDetect(request DetectorRequestDTO) DetectorResponseDTO {
+	// TODO: Implement the detector
 	return DetectorResponseDTO{Detected: true}
 }

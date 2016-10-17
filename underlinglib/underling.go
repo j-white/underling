@@ -23,8 +23,10 @@ func sendHearbeat(conf UnderlingConfig) {
 
 func (underling *Underling) Start(conf UnderlingConfig) {
 	sc := StompClient{Config: conf}
+	// TODO: Can we dynamically register these in Go?
 	sc.RegisterModule(SNMPRpcModule{})
 	sc.RegisterModule(DetectorRpcModule{})
+	sc.RegisterModule(PollerRpcModule{})
 	stop := sc.Start()
 
 	heartbeat := time.NewTicker(time.Second * 30).C
