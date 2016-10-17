@@ -126,3 +126,16 @@ type PollerResponseDTO struct {
 	XMLName xml.Name        `xml:"poller-response"`
 	Status  PollerStatusDTO `xml:"poll-status"`
 }
+
+type DnsRequestDTO struct {
+	XMLName     xml.Name `xml:"dns-lookup-request"`
+	Location    string   `xml:"location,attr"`
+	HostRequest string   `xml:"host-request,attr"`
+	QueryType   string   `xml:"query-type,attr"`
+}
+
+type DnsResponseDTO struct {
+	XMLName        xml.Name `xml:"dns-lookup-response"`
+	HostResponse   string   `xml:"host-response,attr"`
+	FailureMessage string   `xml:"failure-message,attr,omitempty"`
+}

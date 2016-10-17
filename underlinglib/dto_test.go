@@ -223,3 +223,28 @@ func TestMarshalUnmarshalPollerResponseDTO(t *testing.T) {
 
 	MarshalUnmarshal(t, expectedResponse, expectedXml, &(PollerResponseDTO{}))
 }
+
+func TestMarshalUnmarshalDnsRequestDTO(t *testing.T) {
+	expectedXml := `<dns-lookup-request location="MINION" host-request="localhost" query-type="LOOKUP"></dns-lookup-request>`
+
+	expectedRequest := DnsRequestDTO{
+		XMLName:     xml.Name{Space: "", Local: "dns-lookup-request"},
+		Location:    "MINION",
+		HostRequest: "localhost",
+		QueryType:   "LOOKUP",
+	}
+
+	MarshalUnmarshal(t, expectedRequest, expectedXml, &(DnsRequestDTO{}))
+}
+
+func TestMarshalUnmarshalDnsResponseDTO(t *testing.T) {
+	expectedXml := `<dns-lookup-response host-response="127.0.0.1" failure-message="UnknownHost"></dns-lookup-response>`
+
+	expectedResponse := DnsResponseDTO{
+		XMLName:        xml.Name{Space: "", Local: "dns-lookup-response"},
+		HostResponse:   "127.0.0.1",
+		FailureMessage: "UnknownHost",
+	}
+
+	MarshalUnmarshal(t, expectedResponse, expectedXml, &(DnsResponseDTO{}))
+}
