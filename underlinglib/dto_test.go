@@ -181,3 +181,45 @@ func TestMarshalUnmarshalMinionIdentityDTO(t *testing.T) {
 
 	MarshalUnmarshal(t, expectedIdentity, expectedXml, &(MinionIdentityDTO{}))
 }
+
+func TestMarshalUnmarshalPollerRequestDTO(t *testing.T) {
+	expectedXml := `<poller-request location="MINION" class-name="org.opennms.netmgt.poller.monitors.IcmpMonitor" address="127.0.0.1">
+  <attribute key="port" value="18980"></attribute>
+</poller-request>`
+
+	attribute := PollerAttributeDTO{
+		XMLName: xml.Name{Space: "", Local: "attribute"},
+		Key:     "port",
+		Value:   "18980",
+	}
+
+	expectedRequest := PollerRequestDTO{
+		XMLName:    xml.Name{Space: "", Local: "poller-request"},
+		Location:   "MINION",
+		ClassName:  "org.opennms.netmgt.poller.monitors.IcmpMonitor",
+		Address:    "127.0.0.1",
+		Attributes: []PollerAttributeDTO{attribute},
+	}
+
+	MarshalUnmarshal(t, expectedRequest, expectedXml, &(PollerRequestDTO{}))
+}
+
+func TestMarshalUnmarshalPollerResponseDTO(t *testing.T) {
+	expectedXml := `<poller-response>
+  <poll-status code="1" name="Up" time="1969-12-31T19:00:00-05:00"></poll-status>
+</poller-response>`
+
+	status := PollerStatusDTO{
+		XMLName: xml.Name{Space: "", Local: "poll-status"},
+		Code:    1,
+		Name:    "Up",
+		Time:    "1969-12-31T19:00:00-05:00",
+	}
+
+	expectedResponse := PollerResponseDTO{
+		XMLName: xml.Name{Space: "", Local: "poller-response"},
+		Status:  status,
+	}
+
+	MarshalUnmarshal(t, expectedResponse, expectedXml, &(PollerResponseDTO{}))
+}

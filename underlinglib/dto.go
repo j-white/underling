@@ -97,3 +97,32 @@ type MinionIdentityDTO struct {
 	Id       string   `xml:"id"`
 	Location string   `xml:"location"`
 }
+
+type PollerAttributeDTO struct {
+	XMLName  xml.Name `xml:"attribute"`
+	Key      string   `xml:"key,attr"`
+	Value    string   `xml:"value,attr"`
+	Contents string   `xml:",chardata"`
+}
+
+type PollerRequestDTO struct {
+	XMLName    xml.Name             `xml:"poller-request"`
+	Location   string               `xml:"location,attr"`
+	ClassName  string               `xml:"class-name,attr"`
+	Address    string               `xml:"address,attr"`
+	Attributes []PollerAttributeDTO `xml:"attribute"`
+}
+
+type PollerStatusDTO struct {
+	XMLName      xml.Name `xml:"poll-status"`
+	Code         int      `xml:"code,attr"`
+	Name         string   `xml:"name,attr,omitempty"`
+	ResponseTime float64  `xml:"response-time,attr,omitempty"`
+	Reason       string   `xml:"reason,attr,omitempty"`
+	Time         string   `xml:"time,attr"`
+}
+
+type PollerResponseDTO struct {
+	XMLName xml.Name        `xml:"poller-response"`
+	Status  PollerStatusDTO `xml:"poll-status"`
+}
