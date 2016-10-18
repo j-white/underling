@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-stomp/stomp/frame"
@@ -213,11 +214,11 @@ func processLoop(c *Conn, writer *frame.Writer) {
 
 	for {
 		if c.readTimeout > 0 && readTimer == nil {
-			readTimer := time.NewTimer(c.readTimeout)
+			readTimer = time.NewTimer(c.readTimeout)
 			readTimeoutChannel = readTimer.C
 		}
 		if c.writeTimeout > 0 && writeTimer == nil {
-			writeTimer := time.NewTimer(c.writeTimeout)
+			writeTimer = time.NewTimer(c.writeTimeout)
 			writeTimeoutChannel = writeTimer.C
 		}
 
@@ -456,7 +457,19 @@ func (c *Conn) sendFrame(f *frame.Frame) error {
 		}
 
 		c.writeCh <- request
-		response, ok := <-request.C
+
+		var response *frame.Frame
+
+		if c.writeTimeout > 0 {
+			select {
+			case response, ok = <-request.C:
+			case <-time.After(c.writeTimeout):
+				ok = false
+			}
+		} else {
+			response, ok = <-request.C
+		}
+
 		if ok {
 			if response.Command != frame.RECEIPT {
 				return newError(response)
@@ -508,11 +521,12 @@ func (c *Conn) Subscribe(destination string, ack AckMode, opts ...func(*frame.Fr
 	}
 
 	sub := &Subscription{
-		id:          id,
-		destination: destination,
-		conn:        c,
-		ackMode:     ack,
-		C:           make(chan *Message, 16),
+		id:             id,
+		destination:    destination,
+		conn:           c,
+		ackMode:        ack,
+		C:              make(chan *Message, 16),
+		completedMutex: &sync.Mutex{},
 	}
 	go sub.readLoop(ch)
 

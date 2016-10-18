@@ -1,4 +1,4 @@
-// Copyright 2012-2014 The GoSNMP Authors. All rights reserved.  Use of this
+// Copyright 2012-2016 The GoSNMP Authors. All rights reserved.  Use of this
 // source code is governed by a BSD-style license that can be found in the
 // LICENSE file.
 
@@ -21,16 +21,33 @@ import (
 
 type testsEnmarshalVarbindPosition struct {
 	oid string
-	// start and finish position of bytes are calculated with application layer
-	// starting at byte 0. The easiest way to calculate these values is to select
-	// "Simple Network Management Protocal" line in Wiresharks middle pane, then right click
-	// and choose "Export Selected Package Bytes..." (don't use ghex etc, too hard).
-	// Then open the capture in wireshark, right-click, "decode as..."
-	// and choose snmp. Click on each varbind and the "packet bytes" window
-	// will highlight the corresponding bytes, then the "eyeball tool" can be
-	// used to find the start and finish values...
-	//
-	// Then use `~/bin/go-bindata -nocompress foo.pcap` to generate function.
+
+	/*
+		start and finish position of bytes are calculated with application layer
+		starting at byte 0. There are two ways to understand Wireshark dumps,
+		switch between them:
+
+		1) the standard decode of the full packet - easier to understand
+		what's actually happening
+
+		2) for counting byte positions: select "Simple Network Management
+		Protocal" line in Wiresharks middle pane, then right click and choose
+		"Export Packet Bytes..." (as .raw). Open the capture in wireshark, it
+		will decode as "BER Encoded File". Click on each varbind and the
+		"packet bytes" window will highlight the corresponding bytes, then the
+		start and end positions can be found.
+	*/
+
+	/*
+		go-bindata has changed output format. Old style is needed:
+
+		go get -u github.com/jteeuwen/go-bindata/...
+		git co 79847ab
+		rm ~/go/bin/go-bindata  # belts and braces
+		go install
+		~/go/bin/go-bindata -uncompressed *.pcap
+	*/
+
 	start    int
 	finish   int
 	pduType  Asn1BER
@@ -175,6 +192,31 @@ var testsEnmarshal = []testsEnmarshalT{
 		0x1c, // finish
 		[]testsEnmarshalVarbindPosition{},
 	},
+	// trap - TimeTicks
+	// snmptrap different with timetick 2, integer 5
+
+	// trap1 - capture is from frame - less work, decode easier
+	// varbinds - because Wireshark is decoding as BER's, need to subtract 2
+	// from start of varbinds
+	{
+		Version2c,
+		"public",
+		SNMPv2Trap,
+		1918693186,
+		0,
+		trap1,
+		"trap1",
+		0x0e, // pdu start
+		0x1c, // vbl start
+		0x82, // finish
+		[]testsEnmarshalVarbindPosition{
+			{".1.3.6.1.2.1.1.3.0", 0x1e, 0x2f, TimeTicks, uint32(18542501)},
+			{".1.3.6.1.6.3.1.1.4.1.0", 0x30, 0x45, ObjectIdentifier, ".1.3.6.1.2.1.1"},
+			{".1.3.6.1.2.1.1.1.0", 0x46, 0x59, OctetString, "red laptop"},
+			{".1.3.6.1.2.1.1.7.0", 0x5e, 0x6c, Integer, 5},
+			{".1.3.6.1.2.1.1.2", 0x6d, 0x82, ObjectIdentifier, ".1.3.6.1.4.1.2.3.4.5"},
+		},
+	},
 }
 
 // helpers for Enmarshal tests
@@ -241,11 +283,10 @@ func TestEnmarshalVBL(t *testing.T) {
 			Community: test.community,
 			Version:   test.version,
 			RequestID: test.requestid,
+			Variables: vbPosPdus(test),
 		}
 
-		pdus := vbPosPdus(test)
-
-		testBytes, err := x.marshalVBL(pdus)
+		testBytes, err := x.marshalVBL()
 		if err != nil {
 			t.Errorf("#%s: marshalVBL() err returned: %v", test.funcName, err)
 		}
@@ -263,10 +304,10 @@ func TestEnmarshalPDU(t *testing.T) {
 			Version:   test.version,
 			PDUType:   test.requestType,
 			RequestID: test.requestid,
+			Variables: vbPosPdus(test),
 		}
-		pdus := vbPosPdus(test)
 
-		testBytes, err := x.marshalPDU(pdus, test.requestid)
+		testBytes, err := x.marshalPDU()
 		if err != nil {
 			t.Errorf("#%s: marshalPDU() err returned: %v", test.funcName, err)
 		}
@@ -285,11 +326,10 @@ func TestEnmarshalMsg(t *testing.T) {
 			PDUType:   test.requestType,
 			RequestID: test.requestid,
 			MsgID:     test.msgid,
+			Variables: vbPosPdus(test),
 		}
-		pdus := vbPosPdus(test)
 
-		testBytes, err := x.marshalMsg(pdus,
-			test.requestType, test.msgid, test.requestid)
+		testBytes, err := x.marshalMsg()
 		if err != nil {
 			t.Errorf("#%s: marshal() err returned: %v", test.funcName, err)
 		}
@@ -591,11 +631,25 @@ SANITY:
 	for i, test := range testsUnmarshal {
 		var err error
 		var res = new(SnmpPacket)
+		var cursor int
 
-		if err = Default.unmarshal(test.in(), res); err != nil {
-			t.Errorf("#%d, Unmarshal returned err: %v", i, err)
+		var buf = test.in()
+		cursor, err = Default.unmarshalHeader(buf, res)
+		if err != nil {
+			t.Errorf("#%d, UnmarshalHeader returned err: %v", i, err)
 			continue SANITY
-		} else if res == nil {
+		}
+		if res.Version == Version3 {
+			buf, cursor, err = Default.decryptPacket(buf, cursor, res)
+			if err != nil {
+				t.Errorf("#%d, decryptPacket returned err: %v", i, err)
+			}
+		}
+		err = Default.unmarshalPayload(test.in(), cursor, res)
+		if err != nil {
+			t.Errorf("#%d, UnmarshalPayload returned err: %v", i, err)
+		}
+		if res == nil {
 			t.Errorf("#%d, Unmarshal returned nil", i)
 			continue SANITY
 		}
@@ -1154,6 +1208,16 @@ func counter64Response() []byte {
 	}
 }
 
+func TestUnmarshalEmptyPanic(t *testing.T) {
+	var in = []byte{}
+	var res = new(SnmpPacket)
+
+	_, err := Default.unmarshalHeader(in, res)
+	if err == nil {
+		t.Errorf("unmarshalHeader did not gracefully detect empty packet")
+	}
+}
+
 func TestSendOneRequest_dups(t *testing.T) {
 	srvr, err := net.ListenUDP("udp4", &net.UDPAddr{})
 	defer srvr.Close()
@@ -1179,20 +1243,31 @@ func TestSendOneRequest_dups(t *testing.T) {
 			buf := buf[:n]
 
 			var reqPkt SnmpPacket
-			err = x.unmarshal(buf, &reqPkt)
+			var cursor int
+			cursor, err = x.unmarshalHeader(buf, &reqPkt)
 			if err != nil {
 				t.Errorf("Error: %s", err)
 			}
-			rspPkt := x.mkSnmpPacket(GetResponse, 0, 0)
-			rspPkt.RequestID = reqPkt.RequestID
-			rspPkt.Variables = []SnmpPDU{
+			// if x.Version == Version3 {
+			//	buf, cursor, err = x.decryptPacket(buf, cursor, &reqPkt)
+			//	if err != nil {
+			//		t.Errorf("Error: %s", err)
+			//	}
+			//}
+			err = x.unmarshalPayload(buf, cursor, &reqPkt)
+			if err != nil {
+				t.Errorf("Error: %s", err)
+			}
+
+			rspPkt := x.mkSnmpPacket(GetResponse, []SnmpPDU{
 				{
 					Name:  ".1.2",
 					Type:  Integer,
 					Value: 123,
 				},
-			}
-			outBuf, err := rspPkt.marshalMsg(rspPkt.Variables, rspPkt.PDUType, rspPkt.MsgID, rspPkt.RequestID)
+			}, 0, 0)
+			rspPkt.RequestID = reqPkt.RequestID
+			outBuf, err := rspPkt.marshalMsg()
 			if err != nil {
 				t.Errorf("ERR: %s", err)
 			}
@@ -1203,16 +1278,16 @@ func TestSendOneRequest_dups(t *testing.T) {
 		}
 	}()
 
-	reqPkt := x.mkSnmpPacket(GetResponse, 0, 0) //not actually a GetResponse, but we need something our test server can unmarshal
-	reqPDU := SnmpPDU{Name: ".1.2", Type: Null}
+	pdus := []SnmpPDU{SnmpPDU{Name: ".1.2", Type: Null}}
+	reqPkt := x.mkSnmpPacket(GetResponse, pdus, 0, 0) //not actually a GetResponse, but we need something our test server can unmarshal
 
-	_, err = x.sendOneRequest([]SnmpPDU{reqPDU}, reqPkt)
+	_, err = x.sendOneRequest(reqPkt, true)
 	if err != nil {
 		t.Errorf("Error: %s", err)
 		return
 	}
 
-	_, err = x.sendOneRequest([]SnmpPDU{reqPDU}, reqPkt)
+	_, err = x.sendOneRequest(reqPkt, true)
 	if err != nil {
 		t.Errorf("Error: %s", err)
 		return
@@ -1250,11 +1325,11 @@ func BenchmarkSendOneRequest(b *testing.B) {
 		}
 	}()
 
-	reqPkt := x.mkSnmpPacket(GetRequest, 0, 0)
-	reqPDU := SnmpPDU{Name: ".1.3.6.1.2.1.31.1.1.1.10.1", Type: Null}
+	pdus := []SnmpPDU{SnmpPDU{Name: ".1.3.6.1.2.1.31.1.1.1.10.1", Type: Null}}
+	reqPkt := x.mkSnmpPacket(GetRequest, pdus, 0, 0)
 
 	// make sure everything works before starting the test
-	_, err = x.sendOneRequest([]SnmpPDU{reqPDU}, reqPkt)
+	_, err = x.sendOneRequest(reqPkt, true)
 	if err != nil {
 		b.Fatalf("Precheck failed: %s", err)
 	}
@@ -1262,10 +1337,66 @@ func BenchmarkSendOneRequest(b *testing.B) {
 	b.StartTimer()
 
 	for n := 0; n < b.N; n++ {
-		_, err = x.sendOneRequest([]SnmpPDU{reqPDU}, reqPkt)
+		_, err = x.sendOneRequest(reqPkt, true)
 		if err != nil {
 			b.Fatalf("Error: %s", err)
 			return
 		}
 	}
+}
+
+/*
+$ snmptrap -v 2c -c public 192.168.1.10 '' SNMPv2-MIB::system SNMPv2-MIB::sysDescr.0 s "red laptop" SNMPv2-MIB::sysServices.0 i "5"
+
+Simple Network Management Protocol
+    version: v2c (1)
+    community: public
+    data: snmpV2-trap (7)
+        snmpV2-trap
+            request-id: 1271509950
+            error-status: noError (0)
+            error-index: 0
+            variable-bindings: 5 items
+                1.3.6.1.2.1.1.3.0: 1034156
+                    Object Name: 1.3.6.1.2.1.1.3.0 (iso.3.6.1.2.1.1.3.0)
+                    Value (Timeticks): 1034156
+                1.3.6.1.6.3.1.1.4.1.0: 1.3.6.1.2.1.1 (iso.3.6.1.2.1.1)
+                    Object Name: 1.3.6.1.6.3.1.1.4.1.0 (iso.3.6.1.6.3.1.1.4.1.0)
+                    Value (OID): 1.3.6.1.2.1.1 (iso.3.6.1.2.1.1)
+                1.3.6.1.2.1.1.1.0: 726564206c6170746f70
+                    Object Name: 1.3.6.1.2.1.1.1.0 (iso.3.6.1.2.1.1.1.0)
+                    Value (OctetString): 726564206c6170746f70
+                        Variable-binding-string: red laptop
+                1.3.6.1.2.1.1.7.0:
+                    Object Name: 1.3.6.1.2.1.1.7.0 (iso.3.6.1.2.1.1.7.0)
+                    Value (Integer32): 5
+                1.3.6.1.2.1.1.2: 1.3.6.1.4.1.2.3.4.5 (iso.3.6.1.4.1.2.3.4.5)
+                    Object Name: 1.3.6.1.2.1.1.2 (iso.3.6.1.2.1.1.2)
+                    Value (OID): 1.3.6.1.4.1.2.3.4.5 (iso.3.6.1.4.1.2.3.4.5)
+*/
+
+func trap1() []byte {
+	return []byte{
+		0x30, 0x81, 0x80, 0x02, 0x01, 0x01, 0x04, 0x06, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0xa7, 0x73,
+		0x02, 0x04, 0x72, 0x5c, 0xef, 0x42, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00, 0x30, 0x65, 0x30, 0x10,
+		0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03, 0x00, 0x43, 0x04, 0x01, 0x1a, 0xef, 0xa5,
+		0x30, 0x14, 0x06, 0x0a, 0x2b, 0x06, 0x01, 0x06, 0x03, 0x01, 0x01, 0x04, 0x01, 0x00, 0x06, 0x06,
+		0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x30, 0x16, 0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01,
+		0x01, 0x00, 0x04, 0x0a, 0x72, 0x65, 0x64, 0x20, 0x6c, 0x61, 0x70, 0x74, 0x6f, 0x70, 0x30, 0x0d,
+		0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x07, 0x00, 0x02, 0x01, 0x05, 0x30, 0x14, 0x06,
+		0x07, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x02, 0x06, 0x09, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x02,
+		0x03, 0x04, 0x05, 0x00, 0x00, 0x00, 0xd0, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x68, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x74, 0x3a, 0x05, 0x00, 0xa1, 0x27, 0x42, 0x0c, 0x46, 0x00,
+		0x00, 0x00, 0x46, 0x00, 0x00, 0x00, 0x10, 0x4a, 0x7d, 0x34, 0x3a, 0xa5, 0x74, 0xda, 0x38, 0x4d,
+		0x6c, 0x6c, 0x08, 0x00, 0x45, 0x00, 0x00, 0x38, 0xcc, 0xdb, 0x40, 0x00, 0xff, 0x01, 0x2b, 0x74,
+		0xc0, 0xa8, 0x01, 0x0a, 0xc0, 0xa8, 0x01, 0x1a, 0x03, 0x03, 0x11, 0x67, 0x00, 0x00, 0x00, 0x00,
+		0x45, 0x00, 0x00, 0x9f, 0xe6, 0x8f, 0x40, 0x00, 0x40, 0x11, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x1a,
+		0xc0, 0xa8, 0x01, 0x0a, 0xaf, 0x78, 0x00, 0xa2, 0x00, 0x8b, 0x0b, 0x3a, 0x00, 0x00, 0x68, 0x00,
+		0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x6c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x74, 0x3a,
+		0x05, 0x00, 0xca, 0x94, 0x67, 0x0c, 0x01, 0x00, 0x1c, 0x00, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65,
+		0x72, 0x73, 0x20, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x64, 0x20, 0x62, 0x79, 0x20, 0x64,
+		0x75, 0x6d, 0x70, 0x63, 0x61, 0x70, 0x02, 0x00, 0x08, 0x00, 0x74, 0x3a, 0x05, 0x00, 0xdf, 0xba,
+		0x27, 0x0c, 0x03, 0x00, 0x08, 0x00, 0x74, 0x3a, 0x05, 0x00, 0x18, 0x94, 0x67, 0x0c, 0x04, 0x00,
+		0x08, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x08, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6c, 0x00, 0x00, 0x00}
 }
