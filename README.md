@@ -64,6 +64,7 @@ To enable STOMP, add the following to `etc/opennms-activemq.xml` in the `<transp
 
 ```
 gomobile bind -target android -o underling.aar -javapkg go.underling ./bindings
+gomobile bind -target ios ./bindings
 ```
 
 
