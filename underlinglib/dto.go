@@ -139,3 +139,44 @@ type DnsResponseDTO struct {
 	HostResponse   string   `xml:"host-response,attr"`
 	FailureMessage string   `xml:"failure-message,attr,omitempty"`
 }
+
+type PingRequestDTO struct {
+	XMLName    xml.Name `xml:"ping-request"`
+	Location   string   `xml:"location,attr"`
+	Retries    int      `xml:"retries,attr"`
+	Timeout    int      `xml:"timeout,attr"`
+	Address    string   `xml:"address"`
+	PacketSize int      `xml:"packet-size"`
+}
+
+type PingResponseDTO struct {
+	XMLName xml.Name `xml:"ping-response"`
+	RTT     float64  `xml:"rtt"`
+}
+
+type PingSweepRangeDTO struct {
+	XMLName xml.Name `xml:"ip-range"`
+	Begin   string   `xml:"begin,attr"`
+	End     string   `xml:"end,attr"`
+	Retries int      `xml:"retries,attr"`
+	Timeout int      `xml:"timeout,attr"`
+}
+
+type PingSweepRequestDTO struct {
+	XMLName          xml.Name            `xml:"ping-sweep-request"`
+	Location         string              `xml:"location,attr"`
+	PacketsPerSecond float64             `xml:"packets-per-second,attr"`
+	PacketSize       int                 `xml:"packet-size,attr"`
+	Ranges           []PingSweepRangeDTO `xml:"ip-range"`
+}
+
+type PingSweepResultDTO struct {
+	XMLName xml.Name `xml:"pinger-result"`
+	Address string   `xml:"address"`
+	RTT     float64  `xml:"rtt"`
+}
+
+type PingSweepResponseDTO struct {
+	XMLName xml.Name             `xml:"ping-sweep-response"`
+	Results []PingSweepResultDTO `xml:"pinger-result"`
+}

@@ -248,3 +248,80 @@ func TestMarshalUnmarshalDnsResponseDTO(t *testing.T) {
 
 	MarshalUnmarshal(t, expectedResponse, expectedXml, &(DnsResponseDTO{}))
 }
+
+func TestMarshalUnmarshalPingRequestDTO(t *testing.T) {
+	expectedXml := `<ping-request location="MINION" retries="10" timeout="5000">
+  <address>127.0.0.1</address>
+  <packet-size>20</packet-size>
+</ping-request>`
+
+	expectedRequest := PingRequestDTO{
+		XMLName:    xml.Name{Space: "", Local: "ping-request"},
+		Location:   "MINION",
+		Retries:    10,
+		Timeout:    5000,
+		Address:    "127.0.0.1",
+		PacketSize: 20,
+	}
+
+	MarshalUnmarshal(t, expectedRequest, expectedXml, &(PingRequestDTO{}))
+}
+
+func TestMarshalUnmarshalPingResponseDTO(t *testing.T) {
+	expectedXml := `<ping-response>
+  <rtt>10.253</rtt>
+</ping-response>`
+
+	expectedResponse := PingResponseDTO{
+		XMLName: xml.Name{Space: "", Local: "ping-response"},
+		RTT:     10.253,
+	}
+
+	MarshalUnmarshal(t, expectedResponse, expectedXml, &(PingResponseDTO{}))
+}
+
+func TestMarshalUnmarshalPingSweepRequestDTO(t *testing.T) {
+	expectedXml := `<ping-sweep-request location="MINION" packets-per-second="9.5" packet-size="64">
+  <ip-range begin="127.0.0.1" end="127.0.0.5" retries="2" timeout="1000"></ip-range>
+</ping-sweep-request>`
+
+	pingSweepRange := PingSweepRangeDTO{
+		XMLName: xml.Name{Space: "", Local: "ip-range"},
+		Begin:   "127.0.0.1",
+		End:     "127.0.0.5",
+		Retries: 2,
+		Timeout: 1000,
+	}
+
+	expectedRequest := PingSweepRequestDTO{
+		XMLName:          xml.Name{Space: "", Local: "ping-sweep-request"},
+		Location:         "MINION",
+		PacketSize:       64,
+		PacketsPerSecond: 9.5,
+		Ranges:           []PingSweepRangeDTO{pingSweepRange},
+	}
+
+	MarshalUnmarshal(t, expectedRequest, expectedXml, &(PingSweepRequestDTO{}))
+}
+
+func TestMarshalUnmarshalPingSweepResponseDTO(t *testing.T) {
+	expectedXml := `<ping-sweep-response>
+  <pinger-result>
+    <address>127.0.0.1</address>
+    <rtt>0.243</rtt>
+  </pinger-result>
+</ping-sweep-response>`
+
+	pingSweepResult := PingSweepResultDTO{
+		XMLName: xml.Name{Space: "", Local: "pinger-result"},
+		Address: "127.0.0.1",
+		RTT:     0.243,
+	}
+
+	expectedResponse := PingSweepResponseDTO{
+		XMLName: xml.Name{Space: "", Local: "ping-sweep-response"},
+		Results: []PingSweepResultDTO{pingSweepResult},
+	}
+
+	MarshalUnmarshal(t, expectedResponse, expectedXml, &(PingSweepResponseDTO{}))
+}

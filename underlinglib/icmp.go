@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -31,11 +30,7 @@ func (pinger DefaultPinger) Ping(host string, retries int, timeout int) (rtt tim
 	p := fastping.NewPinger()
 	p.Network("udp")
 
-	netProto := "ip4:icmp"
-	if strings.Index(host, ":") != -1 {
-		netProto = "ip6:ipv6-icmp"
-	}
-	ra, err := net.ResolveIPAddr(netProto, host)
+	ra, err := resolve(host)
 	if err != nil {
 		return 0, err
 	}
@@ -64,7 +59,7 @@ loop:
 			rtt, err = 0, errors.New("Interrupted.")
 			break loop
 		case <-onRecv:
-			rtt, err = 1, nil
+			rtt, err = 1, nil // FIXME: res.rtt is always 0
 			break loop
 		case <-onIdle:
 			rtt, err = 0, nil
