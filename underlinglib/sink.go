@@ -9,7 +9,7 @@ type SinkClient struct {
 }
 
 func (sc *SinkClient) Send(queueName string, messageBody string) {
-	conn, err := stomp.Dial("tcp", sc.Config.OpenNMS.Mq, options...)
+	conn, err := stomp.Dial("tcp", sc.Config.OpenNMS.Mq, stompClientOptions(sc.Config)...)
 	if err != nil {
 		println("failed to connect to server", sc.Config.OpenNMS.Mq, err.Error())
 		return

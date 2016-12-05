@@ -25,17 +25,19 @@ type StompResponse struct {
 	CorrelationID string
 }
 
-// these are the options work with ActiveMQ
-var options []func(*stomp.Conn) error = []func(*stomp.Conn) error{
-	stomp.ConnOpt.Login("guest", "guest"),
-	stomp.ConnOpt.Host("/"),
-	stomp.ConnOpt.HeartBeatError(5 * time.Second),
-	stomp.ConnOpt.HeartBeat(5 * time.Second, 5 * time.Second),
-}
-
 type StompClient struct {
 	Config  UnderlingConfig
 	modules []RPCModule
+}
+
+// these are the options work with ActiveMQ
+func stompClientOptions(conf UnderlingConfig) []func(*stomp.Conn) error {
+	return []func(*stomp.Conn) error{
+		stomp.ConnOpt.Login(conf.OpenNMS.Username, conf.OpenNMS.Password),
+		stomp.ConnOpt.Host("/"),
+		stomp.ConnOpt.HeartBeatError(5 * time.Second),
+		stomp.ConnOpt.HeartBeat(5*time.Second, 5*time.Second),
+	}
 }
 
 func (sc *StompClient) RegisterModule(module RPCModule) {
@@ -74,7 +76,7 @@ func recvMessages(sc *StompClient, moduleId string, conf UnderlingConfig, incomi
 	}()
 
 	for {
-		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
+		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, stompClientOptions(sc.Config)...)
 		if err != nil {
 			println(moduleId, "failed to connect to server", conf.OpenNMS.Mq, err.Error())
 			println(moduleId, "sleeping for 5 seconds before trying again")
@@ -145,7 +147,7 @@ func handleMessage(sc *StompClient, msg *stomp.Message, outgoingMessages chan *S
 func sendMessages(conf UnderlingConfig, outgoingMessages chan *StompResponse) {
 
 	for {
-		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, options...)
+		conn, err := stomp.Dial("tcp", conf.OpenNMS.Mq, stompClientOptions(conf)...)
 		if err != nil {
 			println("failed to connect to server", conf.OpenNMS.Mq, err.Error())
 			println("sleeping for 5 seconds before trying again")
